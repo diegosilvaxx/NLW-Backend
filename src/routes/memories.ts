@@ -23,6 +23,7 @@ export async function memoriesRoutes(app: FastifyInstance) {
         coverUrl: memory.coverUrl,
         excerpt: memory.content.substring(0, 115).concat('...'),
         createdAt: memory.createdAt,
+        isPublic: memory.isPublic,
       }
     })
   })
@@ -69,42 +70,48 @@ export async function memoriesRoutes(app: FastifyInstance) {
   })
 
   app.put('/memories/:id', async (request, reply) => {
-    const paramsSchema = z.object({
-      id: z.string().uuid(),
-    })
+    try {
+      const paramsSchema = z.object({
+        id: z.string(),
+      })
 
-    const { id } = paramsSchema.parse(request.params)
+      const { id } = paramsSchema.parse(request.params)
 
-    const bodySchema = z.object({
-      content: z.string(),
-      coverUrl: z.string(),
-      isPublic: z.coerce.boolean().default(false),
-    })
+      const bodySchema = z.object({
+        content: z.string(),
+        coverUrl: z.string(),
+        isPublic: z.coerce.boolean().default(false),
+      })
 
-    const { content, coverUrl, isPublic } = bodySchema.parse(request.body)
+      const { content, coverUrl, isPublic } = bodySchema.parse(request.body)
 
-    let memory = await prisma.memory.findUniqueOrThrow({
-      where: {
-        id,
-      },
-    })
+      let memory = await prisma.memory.findUniqueOrThrow({
+        where: {
+          id,
+        },
+      })
 
-    if (memory.userId !== request.user.sub) {
-      return reply.status(401).send()
+      console.log('memory', memory)
+
+      if (memory.userId !== request.user.sub) {
+        return reply.status(401).send()
+      }
+
+      memory = await prisma.memory.update({
+        where: {
+          id,
+        },
+        data: {
+          content,
+          coverUrl,
+          isPublic,
+        },
+      })
+
+      return memory
+    } catch (error) {
+      console.error('errou aqui', error)
     }
-
-    memory = await prisma.memory.update({
-      where: {
-        id,
-      },
-      data: {
-        content,
-        coverUrl,
-        isPublic,
-      },
-    })
-
-    return memory
   })
 
   app.delete('/memories/:id', async (request, reply) => {
